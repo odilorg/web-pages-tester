@@ -238,14 +238,13 @@ export class Scanner {
    */
   private async captureNetworkRequest(response: any): Promise<NetworkRequest> {
     const request = response.request();
-    const timing = response.timing();
 
     return {
       url: response.url(),
       method: request.method(),
       status: response.status(),
       statusText: response.statusText(),
-      duration: timing ? timing.responseEnd - timing.requestStart : 0,
+      duration: 0, // Timing data not available in Playwright Response API
       failed: response.status() >= 400,
     };
   }
