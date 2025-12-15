@@ -118,7 +118,7 @@ class Scanner {
             }
             // Navigate to page
             const response = await page.goto(url, {
-                waitUntil: 'networkidle',
+                waitUntil: 'load', // Wait for load event, not all network activity
                 timeout: 30000,
             });
             const httpStatus = response?.status() || 0;
