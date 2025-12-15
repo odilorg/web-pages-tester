@@ -42,6 +42,10 @@ export class Scanner {
       captureConsoleLogs: true,
       captureNetworkRequests: true,
       measurePerformance: true,
+      waitStrategy: 'load', // Balanced performance
+      blockExternalResources: false,
+      criticalOnly: false,
+      checkAccessibility: false,
       ...config,
     };
     this.onOutput = onOutput;
@@ -127,6 +131,35 @@ export class Scanner {
       // Collectors
       const consoleLogs: ConsoleLog[] = [];
       const networkRequests: NetworkRequest[] = [];
+      const requestTimings = new Map<string, number>();
+
+      // Resource blocking
+      if (this.config.blockExternalResources || this.config.blockedResourceTypes) {
+        await page.route('**/*', (route) => {
+          const requestUrl = route.request().url();
+          const resourceType = route.request().resourceType();
+          const pageOrigin = new URL(this.config.baseUrl).origin;
+          const requestOrigin = new URL(requestUrl).origin;
+
+          // Block external resources if configured
+          if (this.config.blockExternalResources && requestOrigin !== pageOrigin) {
+            // Allow whitelisted domains
+            const isAllowed = this.config.allowedDomains?.some(domain =>
+              requestUrl.includes(domain)
+            );
+            if (!isAllowed) {
+              return route.abort();
+            }
+          }
+
+          // Block specific resource types
+          if (this.config.blockedResourceTypes?.includes(resourceType as any)) {
+            return route.abort();
+          }
+
+          route.continue();
+        });
+      }
 
       // Listen to console
       if (this.config.captureConsoleLogs) {
@@ -135,16 +168,22 @@ export class Scanner {
         });
       }
 
-      // Listen to network requests
+      // Track request timing
       if (this.config.captureNetworkRequests) {
+        page.on('request', (request) => {
+          requestTimings.set(request.url(), Date.now());
+        });
+
         page.on('response', async (response) => {
-          networkRequests.push(await this.captureNetworkRequest(response));
+          const startTime = requestTimings.get(response.url());
+          const duration = startTime ? Date.now() - startTime : 0;
+          networkRequests.push(await this.captureNetworkRequest(response, duration));
         });
       }
 
-      // Navigate to page
+      // Navigate to page with configurable wait strategy
       const response = await page.goto(url, {
-        waitUntil: 'load', // Wait for load event, not all network activity
+        waitUntil: this.config.waitStrategy || 'load',
         timeout: 30000,
       });
 
@@ -236,7 +275,7 @@ export class Scanner {
   /**
    * Capture network request
    */
-  private async captureNetworkRequest(response: any): Promise<NetworkRequest> {
+  private async captureNetworkRequest(response: any, duration: number = 0): Promise<NetworkRequest> {
     const request = response.request();
 
     return {
@@ -244,7 +283,7 @@ export class Scanner {
       method: request.method(),
       status: response.status(),
       statusText: response.statusText(),
-      duration: 0, // Timing data not available in Playwright Response API
+      duration,
       failed: response.status() >= 400,
     };
   }

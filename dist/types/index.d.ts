@@ -122,9 +122,16 @@ export interface ScanConfig {
     format?: 'jsonl' | 'json';
     includePatterns?: string[];
     excludePatterns?: string[];
+    waitStrategy?: 'load' | 'domcontentloaded' | 'networkidle';
+    blockExternalResources?: boolean;
+    allowedDomains?: string[];
+    blockedResourceTypes?: ('image' | 'stylesheet' | 'font' | 'media')[];
+    criticalOnly?: boolean;
+    minSeverity?: Severity;
     captureScreenshots?: boolean;
     captureConsoleLogs?: boolean;
     captureNetworkRequests?: boolean;
     measurePerformance?: boolean;
+    checkAccessibility?: boolean;
 }
 //# sourceMappingURL=index.d.ts.map

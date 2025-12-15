@@ -42,6 +42,35 @@ const commander_1 = require("commander");
 const fs = __importStar(require("fs"));
 const scanner_1 = require("./core/scanner");
 const program = new commander_1.Command();
+/**
+ * Generate issue statistics table
+ */
+function generateStatisticsTable(issues) {
+    const stats = {};
+    issues.forEach(issue => {
+        if (!stats[issue.category]) {
+            stats[issue.category] = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+        }
+        stats[issue.category][issue.severity]++;
+    });
+    const categories = Object.keys(stats).sort();
+    if (categories.length === 0)
+        return '';
+    let table = '\n╔════════════════════════╦══════════╦══════════╦══════════╦══════════╗\n';
+    table += '║ Category               ║ CRITICAL ║ HIGH     ║ MEDIUM   ║ LOW      ║\n';
+    table += '╠════════════════════════╬══════════╬══════════╬══════════╬══════════╣\n';
+    categories.forEach(category => {
+        const cat = stats[category];
+        const name = category.padEnd(22);
+        const crit = String(cat.CRITICAL || 0).padStart(8);
+        const high = String(cat.HIGH || 0).padStart(8);
+        const med = String(cat.MEDIUM || 0).padStart(8);
+        const low = String(cat.LOW || 0).padStart(8);
+        table += `║ ${name} ║ ${crit} ║ ${high} ║ ${med} ║ ${low} ║\n`;
+    });
+    table += '╚════════════════════════╩══════════╩══════════╩══════════╩══════════╝\n';
+    return table;
+}
 program
     .name('web-tester')
     .description('Progressive web testing tool for Claude Code')
@@ -55,6 +84,12 @@ program
     .option('--no-progressive', 'Disable progressive mode')
     .option('--no-screenshots', 'Disable screenshot capture')
     .option('--viewports <viewports>', 'Viewports to test (comma-separated)', 'desktop')
+    .option('--wait-strategy <strategy>', 'Page load wait strategy (load|domcontentloaded|networkidle)', 'load')
+    .option('--block-external', 'Block external resources (images, scripts from other domains)')
+    .option('--block-resources <types>', 'Block specific resource types (image,font,media,stylesheet)')
+    .option('--exclude <patterns>', 'URL patterns to exclude (comma-separated)')
+    .option('--critical-only', 'Only report CRITICAL severity issues')
+    .option('--min-severity <level>', 'Minimum severity to report (CRITICAL|HIGH|MEDIUM|LOW)')
     .action(async (url, options) => {
     console.log(`🔍 Scanning: ${url}`);
     console.log(`📄 Output: ${options.output}`);
@@ -65,10 +100,16 @@ program
     }
     // Create write stream for JSONL output
     const writeStream = fs.createWriteStream(options.output, { flags: 'w' });
+    // Collect issues for statistics
+    const allIssues = [];
     // Output handler
     const onOutput = (output) => {
         // Write to JSONL file
         writeStream.write(JSON.stringify(output) + '\n');
+        // Collect issues
+        if (output.type === 'issue') {
+            allIssues.push(output);
+        }
         // Console feedback for critical issues
         if (output.type === 'issue' && output.severity === 'CRITICAL') {
             console.log(`🚨 CRITICAL: ${output.message}`);
@@ -87,6 +128,10 @@ program
                 `   Pages: ${output.totalPages}\n` +
                 `   Issues: ${output.issuesFound}\n` +
                 `   Duration: ${output.duration.toFixed(1)}s`);
+            // Show statistics table
+            if (allIssues.length > 0) {
+                console.log(generateStatisticsTable(allIssues));
+            }
         }
     };
     // Create scanner
@@ -97,6 +142,12 @@ program
         captureScreenshots: options.screenshots,
         viewports: options.viewports.split(','),
         outputPath: options.output,
+        waitStrategy: options.waitStrategy,
+        blockExternalResources: options.blockExternal || false,
+        blockedResourceTypes: options.blockResources?.split(','),
+        excludePatterns: options.exclude?.split(','),
+        criticalOnly: options.criticalOnly || false,
+        minSeverity: options.minSeverity,
     }, onOutput);
     try {
         await scanner.scan();

@@ -34,8 +34,25 @@ node dist/cli.js scan https://staging.jahongir-app.uz
 node dist/cli.js scan https://staging.jahongir-app.uz \
   --output /tmp/scan.jsonl \
   --max-pages 50 \
-  --viewports desktop,mobile
+  --viewports desktop,mobile \
+  --wait-strategy load \
+  --block-external \
+  --exclude "/admin/*,/api/internal/*" \
+  --critical-only
 ```
+
+**Available Options:**
+- `-o, --output <path>` - Output file path (default: `/tmp/web-tester/scan.jsonl`)
+- `-m, --max-pages <number>` - Maximum pages to scan (default: `50`)
+- `--viewports <viewports>` - Viewports to test: `mobile`, `tablet`, `desktop` (comma-separated)
+- `--wait-strategy <strategy>` - Page load strategy: `load` (default), `domcontentloaded`, `networkidle`
+- `--block-external` - Block external resources (faster scans, may miss external issues)
+- `--block-resources <types>` - Block specific types: `image`, `font`, `media`, `stylesheet`
+- `--exclude <patterns>` - URL patterns to skip (comma-separated, supports wildcards)
+- `--critical-only` - Only report CRITICAL severity issues
+- `--min-severity <level>` - Minimum severity: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`
+- `--no-progressive` - Disable progressive output
+- `--no-screenshots` - Disable screenshot capture
 
 ## Output Format (JSONL)
 
@@ -72,6 +89,47 @@ Each line is a JSON object representing a scan event:
   "autoFixable": true
 }
 ```
+
+## Issue Statistics
+
+At the end of each scan, a summary table shows issues by category and severity:
+
+```
+╔════════════════════════╦══════════╦══════════╦══════════╦══════════╗
+║ Category               ║ CRITICAL ║ HIGH     ║ MEDIUM   ║ LOW      ║
+╠════════════════════════╬══════════╬══════════╬══════════╬══════════╣
+║ CONSOLE_ERROR          ║        0 ║      155 ║       20 ║        0 ║
+║ NETWORK_FAILURE        ║        0 ║       53 ║       53 ║        0 ║
+║ PERFORMANCE            ║        0 ║        4 ║        0 ║        0 ║
+╚════════════════════════╩══════════╩══════════╩══════════╩══════════╝
+```
+
+## Error Pattern Detection (22+ patterns)
+
+The tool automatically detects and suggests fixes for common errors:
+
+1. **INSUFFICIENT_PATH** (next-intl) - Replace `next/link` with next-intl routing
+2. **Missing dependencies** - Auto-detects and suggests `pnpm add <package>`
+3. **Network timeouts** - Suggests timeout increases or service checks
+4. **Hydration mismatches** (React/Next.js) - SSR/CSR rendering differences
+5. **CORS errors** - Missing Access-Control headers
+6. **Memory leaks** - Out of memory or heap issues
+7. **Undefined/null errors** - Suggests optional chaining (`?.`)
+8. **React Hook errors** - Invalid hook call order
+9. **ESLint/Prettier** - Indentation and formatting
+10. **TypeScript errors** - Type mismatch issues
+11. **Prisma errors** - Unique constraints, N+1 queries
+12. **Environment variables** - Missing .env values
+13. **Database connection** - Connection refused errors
+14. **JWT/Auth tokens** - Invalid or expired tokens
+15. **Rate limiting** (429) - Suggests exponential backoff
+16. **Stale cache** - Redis or browser cache issues
+17. **Missing images** (404) - Broken image paths
+18. **Bundle size** - Large JavaScript bundles
+19. **React keys** - Missing key props in lists
+20. **Deprecated APIs** - Outdated method usage
+21. **Infinite loops** - Maximum call stack exceeded
+22. **And more...** - Continuously expanding pattern library
 
 ## Progressive Processing Example
 

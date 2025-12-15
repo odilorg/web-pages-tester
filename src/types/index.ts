@@ -171,9 +171,20 @@ export interface ScanConfig {
   includePatterns?: string[];
   excludePatterns?: string[];
 
+  // Performance & Loading
+  waitStrategy?: 'load' | 'domcontentloaded' | 'networkidle';
+  blockExternalResources?: boolean;
+  allowedDomains?: string[]; // External domains to allow (e.g., CDNs)
+  blockedResourceTypes?: ('image' | 'stylesheet' | 'font' | 'media')[];
+
+  // Issue Filtering
+  criticalOnly?: boolean;
+  minSeverity?: Severity;
+
   // Features
   captureScreenshots?: boolean;
   captureConsoleLogs?: boolean;
   captureNetworkRequests?: boolean;
   measurePerformance?: boolean;
+  checkAccessibility?: boolean;
 }
